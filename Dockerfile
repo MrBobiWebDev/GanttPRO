@@ -2,14 +2,14 @@
 FROM maven:3.9-eclipse-temurin-17 AS builder
 WORKDIR /workspace
 COPY pom.xml .
+RUN mvn dependency:resolve -DskipTests
 COPY src ./src
-RUN mvn clean package -DskipTests -q
+RUN mvn -B package -DskipTests
 
 # Runtime stage
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:17-jre
 WORKDIR /app
-RUN mkdir -p /app/data
-COPY --from=builder /workspace/target/*.jar app.jar
+RUN mkdir -p data
+COPY --from=builder /workspace/target/ganttpro-app-*.jar app.jar
 EXPOSE 8080
-ENV JAVA_OPTS="-Xmx512m -Xms256m"
-CMD exec java $JAVA_OPTS -jar app.jar
+CMD ["java", "-Xmx512m", "-Xms256m", "-jar", "app.jar"]
