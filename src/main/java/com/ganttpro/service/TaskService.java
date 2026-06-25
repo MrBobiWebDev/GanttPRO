@@ -68,6 +68,9 @@ public class TaskService {
 
     @Transactional
     public Task updateTask(Task task, TaskForm form, User user) throws Exception {
+        System.out.println("=== updateTask called for task ID: " + task.getId() + " ===");
+        System.out.println("New status: " + form.getStatus());
+
         if (!projectMemberService.canEdit(task.getProject(), user)) {
             throw new Exception("Только редактор или владелец может редактировать задачи");
         }
@@ -110,7 +113,9 @@ public class TaskService {
                     form.getPriority().getDisplayName()));
         }
 
-        return taskRepository.save(task);
+        Task saved = taskRepository.save(task);
+        System.out.println("=== Task saved with status: " + saved.getStatus() + " ===");
+        return saved;
     }
 
     @Transactional
