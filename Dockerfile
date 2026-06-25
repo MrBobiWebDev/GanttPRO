@@ -15,5 +15,5 @@ EXPOSE 8080
 ENV PORT=8080
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8080/login || exit 1
-# Start app with minimal memory
-CMD ["sh", "-c", "java -Xmx256m -Xms128m -XX:+UseG1GC -jar /app/app.jar"]
+# Start app with railway profile and minimal memory
+CMD ["sh", "-c", "java -Xmx256m -Xms128m -XX:+UseG1GC -Dspring.profiles.active=railway -jar /app/app.jar"]
