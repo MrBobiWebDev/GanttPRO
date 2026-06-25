@@ -43,6 +43,7 @@ public class TaskService {
         return taskRepository.findByIdAndProject(id, project);
     }
 
+    @Transactional
     public Task createTask(Project project, TaskForm form, User user) throws Exception {
         if (!projectMemberService.canEdit(project, user)) {
             throw new Exception("Только редактор или владелец может создавать задачи");
@@ -65,6 +66,7 @@ public class TaskService {
         return savedTask;
     }
 
+    @Transactional
     public Task updateTask(Task task, TaskForm form, User user) throws Exception {
         if (!projectMemberService.canEdit(task.getProject(), user)) {
             throw new Exception("Только редактор или владелец может редактировать задачи");
