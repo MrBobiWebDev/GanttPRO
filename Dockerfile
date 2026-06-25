@@ -7,9 +7,11 @@ COPY src ./src
 RUN mvn -B package -DskipTests
 
 # Runtime stage
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 RUN mkdir -p data
 COPY --from=builder /workspace/target/ganttpro-app-*.jar app.jar
 EXPOSE 8080
-CMD ["java", "-Xmx512m", "-Xms256m", "-jar", "/app/app.jar"]
+ENV PORT=8080
+# Start app with minimal memory and diagnostic output
+CMD ["sh", "-c", "echo 'Starting GanttPRO...' && java -Xmx256m -Xms128m -XX:+UseG1GC -jar /app/app.jar 2>&1"]
