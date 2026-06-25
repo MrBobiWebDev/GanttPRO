@@ -1639,21 +1639,44 @@
 
             const saveStatus = () => {
                 const newStatus = select.value;
+                const task = findTaskInArray(taskId);
+                if (!task) {
+                    showSaveIndicator('⚠️ Задача не найдена', 'error');
+                    return;
+                }
+
                 showSaveIndicator('💾 Сохранение...', 'saving');
+
+                const formData = {
+                    title: task.title,
+                    description: task.description || '',
+                    startDate: task.startDate,
+                    endDate: task.endDate,
+                    status: newStatus,
+                    progress: newStatus === 'DONE' ? 100 : task.progress,
+                    priority: task.priority,
+                    assigneeName: task.assigneeName || ''
+                };
+
+                const token = document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || '';
+                const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content') || '';
+
                 fetch(`/api/projects/${projectId}/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                        [header]: token
                     },
-                    body: JSON.stringify({ status: newStatus })
+                    body: JSON.stringify(formData)
                 })
-                .then(r => r.json())
+                .then(r => {
+                    if (!r.ok) throw new Error('Server error: ' + r.status);
+                    return r.json();
+                })
                 .then(updatedTask => {
                     element.textContent = getStatusName(newStatus);
                     element.title = getStatusName(newStatus);
-                    // Обновляем везде
-                    updateTaskAndRefresh(taskId, { status: newStatus });
+                    loadTasks();
                     showSaveIndicator('✓ Статус обновлён', 'success');
                 })
                 .catch(err => {
