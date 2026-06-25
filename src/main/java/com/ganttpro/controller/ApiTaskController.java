@@ -90,6 +90,7 @@ public class ApiTaskController {
     }
 
     @PutMapping("/{taskId}")
+    @PatchMapping("/{taskId}")
     public ResponseEntity<Map<String, Object>> update(@PathVariable Long projectId,
                                                       @PathVariable Long taskId,
                                                       @RequestBody TaskForm form,
