@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <title th:text="${taskId} ? 'Редактировать задачу' : 'Создать задачу'">Задача</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <a href="/">📊 GanttPRO</a>
+            </div>
+            <div class="navbar-menu">
+                <a href="/dashboard" class="nav-link">Проекты</a>
+                <a href="/notifications" class="nav-link">Уведомления <span class="notification-badge" id="notificationCount"></span></a>
+                <div class="nav-user">
+                    <span class="username" th:if="${#authentication}" th:text="${#authentication.name}"></span>
+                    <form action="/logout" method="post" style="display: inline;">
+                        <button type="submit" class="nav-logout">Выход</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="form-container">
+            <h1 id="formTitle">Создать новую задачу</h1>
+
+            <div id="errorMessage" class="alert alert-error" style="display:none;"></div>
+
+            <form id="taskForm" class="form-box">
+                <div class="form-group">
+                    <label for="title">Название задачи:</label>
+                    <input type="text" id="title" name="title" required
+                           placeholder="Введите название задачи" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Описание:</label>
+                    <textarea id="description" name="description"
+                              placeholder="Введите описание задачи" class="form-control" rows="4"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="startDate">Дата начала:</label>
+                        <input type="date" id="startDate" name="startDate" required class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="endDate">Дата окончания:</label>
+                        <input type="date" id="endDate" name="endDate" required class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="status">Статус:</label>
+                        <select id="status" name="status" class="form-control">
+                            <option value="TODO">Запланирована</option>
+                            <option value="IN_PROGRESS">В работе</option>
+                            <option value="DONE">Выполнена</option>
+                            <option value="BLOCKED">Заблокирована</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="progress">Прогресс (%):</label>
+                        <input type="number" id="progress" name="progress" min="0" max="100" value="0"
+                               class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="priority">Приоритет:</label>
+                        <select id="priority" name="priority" class="form-control">
+                            <option value="LOW">Низкий</option>
+                            <option value="MEDIUM" selected>Средний</option>
+                            <option value="HIGH">Высокий</option>
+                            <option value="CRITICAL">Критический</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="assigneeName">Исполнитель:</label>
+                        <input type="text" id="assigneeName" name="assigneeName"
+                               placeholder="Введите имя исполнителя" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Создать задачу</button>
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2026 GanttPRO. Простое управление проектами с диаграммой Ганта.</p>
+    </footer>
+
+    <script>
+        const projectId = window.location.pathname.split('/')[2];
+        const taskId = window.location.pathname.split('/')[4];
+        const isEdit = !!taskId && taskId !== 'new';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (isEdit) {
+                loadTaskData();
+                document.getElementById('formTitle').textContent = 'Редактировать задачу';
+                document.getElementById('submitBtn').textContent = 'Сохранить';
+            }
+
+            loadNotificationCount();
+            document.getElementById('taskForm').addEventListener('submit', handleSubmit);
+            document.getElementById('cancelBtn').addEventListener('click', () => {
+                window.location.href = `/projects/${projectId}`;
+            });
+
+            document.getElementById('status').addEventListener('change', function() {
+                if (this.value === 'DONE') {
+                    document.getElementById('progress').value = 100;
+                }
+            });
+        });
+
+        function loadTaskData() {
+            fetch(`/api/projects/${projectId}/tasks/${taskId}`)
+                .then(response => response.json())
+                .then(task => {
+                    document.getElementById('title').value = task.title;
+                    document.getElementById('description').value = task.description || '';
+                    document.getElementById('startDate').value = task.startDate;
+                    document.getElementById('endDate').value = task.endDate;
+                    document.getElementById('status').value = task.status;
+                    document.getElementById('progress').value = task.progress || 0;
+                    document.getElementById('priority').value = task.priority || 'MEDIUM';
+                    document.getElementById('assigneeName').value = task.assigneeName || '';
+                })
+                .catch(error => console.error('Error loading task:', error));
+        }
+
+        function handleSubmit(e) {
+            e.preventDefault();
+
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (new Date(endDate) < new Date(startDate)) {
+                showError('Дата окончания не может быть раньше даты начала');
+                return;
+            }
+
+            const formData = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                startDate: startDate,
+                endDate: endDate,
+                status: document.getElementById('status').value,
+                progress: parseInt(document.getElementById('progress').value),
+                priority: document.getElementById('priority').value,
+                assigneeName: document.getElementById('assigneeName').value
+            };
+
+            const url = isEdit ? `/api/projects/${projectId}/tasks/${taskId}` : `/api/projects/${projectId}/tasks`;
+            const method = isEdit ? 'PUT' : 'POST';
+
+            const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    [header]: token
+                },
+                body: JSON.stringify(formData)
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = `/projects/${projectId}`;
+                } else {
+                    response.json().then(data => showError(data.message || 'Ошибка при сохранении'));
+                }
+            }).catch(error => showError('Ошибка: ' + error.message));
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function loadNotificationCount() {
+            fetch('/api/notifications/count')
+                .then(r => r.json())
+                .then(data => {
+                    const badge = document.getElementById('notificationCount');
+                    if (badge && data.unread > 0) {
+                        badge.textContent = '(' + data.unread + ')';
+                        badge.style.color = 'var(--danger-color)';
+                    }
+                })
+                .catch(() => {});
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Уведомления</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<nav class="navbar">
+    <div class="navbar-container">
+        <div class="navbar-logo">
+            <a href="/">📊 GanttPRO</a>
+        </div>
+        <div class="navbar-menu">
+            <a href="/dashboard" class="nav-link">Проекты</a>
+            <a href="/notifications" class="nav-link active">Уведомления <span class="notification-badge" id="notificationCount"></span></a>
+            <div class="nav-user">
+                <span class="username" th:text="${#authentication.name}"></span>
+                <form action="/logout" method="post" style="display: inline;">
+                    <button type="submit" class="nav-logout">Выход</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="container" style="max-width: 700px; margin: 2rem auto;">
+    <h1>Уведомления</h1>
+
+    <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+        <button onclick="loadNotifications('all')" class="btn btn-primary">Все</button>
+        <button onclick="loadNotifications('unread')" class="btn btn-secondary">Непрочитанные</button>
+        <button onclick="markAllRead()" class="btn btn-secondary">Отметить все как прочитанные</button>
+    </div>
+
+    <div id="notificationsList"></div>
+</div>
+
+<script th:inline="javascript">
+    let filter = 'all';
+
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diff = now - date;
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+        if (hours < 1) return 'Только что';
+        if (hours < 24) return hours + ' ч назад';
+        if (days < 7) return days + ' дн назад';
+        return date.toLocaleDateString('ru-RU');
+    }
+
+    function loadNotifications(type) {
+        filter = type;
+        const endpoint = type === 'unread'
+            ? '/api/notifications?unread=true'
+            : '/api/notifications';
+
+        fetch(endpoint)
+            .then(r => r.json())
+            .then(notifications => {
+                const list = document.getElementById('notificationsList');
+                list.innerHTML = '';
+
+                if (notifications.length === 0) {
+                    list.innerHTML = '<p style="text-align: center; color: var(--text-light);">Нет уведомлений</p>';
+                    return;
+                }
+
+                notifications.forEach(n => {
+                    const div = document.createElement('div');
+                    div.style.cssText = `
+                        border: 1px solid var(--border-color);
+                        padding: 1rem;
+                        margin-bottom: 1rem;
+                        border-radius: 4px;
+                        background: ${n.read ? '#f9fafb' : '#f0f7ff'};
+                    `;
+                    div.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <strong>${n.title}</strong>
+                                <p style="margin: 0.5rem 0; color: var(--text-light);">${n.message}</p>
+                                <span style="font-size: 0.9rem; color: var(--text-light);">${formatDate(n.createdAt)}</span>
+                            </div>
+                            ${!n.read ? `<button onclick="markRead(${n.id})" class="btn btn-sm" style="padding: 0.3rem 0.6rem;">✓ Прочитано</button>` : ''}
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+    }
+
+    function markRead(id) {
+        fetch(`/api/notifications/${id}/read`, {method: 'POST'})
+            .then(() => loadNotifications(filter));
+    }
+
+    function markAllRead() {
+        fetch('/api/notifications/read-all', {method: 'POST'})
+            .then(() => loadNotifications(filter));
+    }
+
+    loadNotifications('all');
+    loadNotificationCount();
+
+    function loadNotificationCount() {
+        fetch('/api/notifications/count')
+            .then(r => r.json())
+            .then(data => {
+                const badge = document.getElementById('notificationCount');
+                if (badge && data.unread > 0) {
+                    badge.textContent = '(' + data.unread + ')';
+                    badge.style.color = 'var(--danger-color)';
+                }
+            })
+            .catch(() => {});
+    }
+</script>
+</body>
+</html>

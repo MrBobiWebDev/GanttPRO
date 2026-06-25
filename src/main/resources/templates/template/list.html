@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Шаблоны проектов - GanttPRO</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <a href="/">📊 GanttPRO</a>
+            </div>
+            <div class="navbar-menu">
+                <a href="/dashboard" class="nav-link">Проекты</a>
+                <a href="/notifications" class="nav-link">Уведомления</a>
+                <div class="nav-user">
+                    <span class="username" th:if="${#authentication}" th:text="${#authentication.name}"></span>
+                    <form action="/logout" method="post" style="display: inline;">
+                        <button type="submit" class="nav-logout">Выход</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-header">
+            <div>
+                <h1>📋 Шаблоны проектов</h1>
+                <p class="subtitle">Создавайте проекты из готовых шаблонов</p>
+            </div>
+            <a href="/dashboard" class="btn btn-secondary">← Назад к проектам</a>
+        </div>
+
+        <div id="templatesList" class="projects-grid">
+            <div class="empty-state">
+                <p>📂 Шаблоны загружаются...</p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2026 GanttPRO. Простое управление проектами с диаграммой Ганта.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTemplates();
+        });
+
+        function loadTemplates() {
+            fetch('/api/templates')
+                .then(response => response.json())
+                .then(data => {
+                    const list = document.getElementById('templatesList');
+                    list.innerHTML = '';
+
+                    if (data.length === 0) {
+                        list.innerHTML = `
+                            <div class="empty-state">
+                                <p>📂 Шаблоны проектов недоступны</p>
+                            </div>
+                        `;
+                    } else {
+                        data.forEach(template => {
+                            const card = document.createElement('div');
+                            card.className = 'project-card';
+                            card.innerHTML = `
+                                <div class="project-card-header">
+                                    <h3 class="project-title">${escapeHtml(template.name)}</h3>
+                                    <span style="color: #888; font-size: 0.85rem;">${template.category}</span>
+                                </div>
+                                <p class="project-description">${escapeHtml(template.description || '')}</p>
+                                <div class="project-tasks">
+                                    <span>📋 ${template.taskCount} задач в шаблоне</span>
+                                </div>
+                                <div class="project-actions">
+                                    <a href="/templates/${template.id}" class="btn btn-secondary btn-sm">Просмотр</a>
+                                    <a href="/templates/${template.id}/create-project" class="btn btn-primary btn-sm">Создать проект</a>
+                                </div>
+                            `;
+                            list.appendChild(card);
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading templates:', error));
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+    </script>
+</body>
+</html>

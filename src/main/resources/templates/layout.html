@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} ?: 'GanttPRO'">GanttPRO</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <a href="/">📊 GanttPRO</a>
+            </div>
+            <div class="navbar-menu">
+                <a href="/" class="nav-link">Главная</a>
+                <a href="/dashboard" class="nav-link">Проекты</a>
+                <div class="nav-user">
+                    <span class="username" th:if="${#authentication}">
+                        <span th:text="${#authentication.name}"></span>
+                    </span>
+                    <form action="/logout" method="post" style="display: inline;">
+                        <button type="submit" class="nav-logout">Выход</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <th:block th:insert="~{:: #content}"></th:block>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2026 GanttPRO. Простое управление проектами с диаграммой Ганта.</p>
+    </footer>
+</body>
+</html>

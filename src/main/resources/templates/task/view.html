@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Задача</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<nav class="navbar">
+    <div class="navbar-container">
+        <div class="navbar-logo">
+            <a href="/">📊 GanttPRO</a>
+        </div>
+        <div class="navbar-menu">
+            <a href="/dashboard" class="nav-link">Проекты</a>
+            <a href="/notifications" class="nav-link">Уведомления <span class="notification-badge" id="notificationCount"></span></a>
+            <div class="nav-user">
+                <span class="username" th:text="${#authentication.name}"></span>
+                <form action="/logout" method="post" style="display: inline;">
+                    <button type="submit" class="nav-logout">Выход</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="container" style="max-width: 900px; margin: 2rem auto;">
+    <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+        <a href="" id="backLink" class="btn btn-secondary">← Назад к проекту</a>
+        <a href="" id="editLink" class="btn btn-primary" style="display: none;">✎ Редактировать</a>
+    </div>
+
+    <div class="form-container">
+        <h1 id="taskTitle"></h1>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+            <div>
+                <label style="font-size: 0.9rem; color: var(--text-light);">Статус</label>
+                <span id="taskStatus" class="status-badge"></span>
+            </div>
+            <div>
+                <label style="font-size: 0.9rem; color: var(--text-light);">Приоритет</label>
+                <span id="taskPriority" class="status-badge"></span>
+            </div>
+            <div>
+                <label style="font-size: 0.9rem; color: var(--text-light);">Начало</label>
+                <p id="taskStartDate"></p>
+            </div>
+            <div>
+                <label style="font-size: 0.9rem; color: var(--text-light);">Окончание</label>
+                <p id="taskEndDate"></p>
+            </div>
+            <div>
+                <label style="font-size: 0.9rem; color: var(--text-light);">Исполнитель</label>
+                <p id="taskAssignee"></p>
+            </div>
+            <div>
+                <label style="font-size: 0.9rem; color: var(--text-light);">Прогресс</label>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="taskProgressBar"></div>
+                    <span class="progress-text" id="taskProgress"></span>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 2rem;">
+            <label style="font-size: 0.9rem; color: var(--text-light);">Описание</label>
+            <p id="taskDescription" style="white-space: pre-wrap;"></p>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 2rem 0;">
+
+        <div style="margin-bottom: 2rem;">
+            <h3>Комментарии</h3>
+            <div id="commentsList" style="margin-bottom: 1rem;"></div>
+            <div class="form-group">
+                <textarea id="commentText" placeholder="Добавить комментарий..." style="min-height: 80px;"></textarea>
+                <button onclick="addComment()" class="btn btn-primary" style="margin-top: 0.5rem;">Отправить</button>
+            </div>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 2rem 0;">
+
+        <div>
+            <h3>История изменений</h3>
+            <div id="activitiesList"></div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const projectId = [[${projectId}]];
+    const taskId = [[${taskId}]];
+    const username = [[${#authentication.name}]];
+
+    document.getElementById('backLink').href = `/projects/${projectId}`;
+    document.getElementById('editLink').href = `/projects/${projectId}/tasks/${taskId}/edit`;
+
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('ru-RU');
+    }
+
+    function getPriorityColor(priority) {
+        const colors = {
+            'LOW': '#888',
+            'MEDIUM': '#2563eb',
+            'HIGH': '#f59e0b',
+            'CRITICAL': '#ef4444'
+        };
+        return colors[priority] || '#888';
+    }
+
+    fetch(`/api/projects/${projectId}/tasks/${taskId}`)
+        .then(r => r.json())
+        .then(task => {
+            document.getElementById('taskTitle').textContent = task.title;
+            document.getElementById('taskStatus').innerHTML = `<span class="status-${task.status.toLowerCase()}">${task.status}</span>`;
+            document.getElementById('taskPriority').innerHTML = `<span style="background: ${getPriorityColor(task.priority)}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px;">${task.priority}</span>`;
+            document.getElementById('taskStartDate').textContent = formatDate(task.startDate);
+            document.getElementById('taskEndDate').textContent = formatDate(task.endDate);
+            document.getElementById('taskAssignee').textContent = task.assigneeName || 'Не назначен';
+            document.getElementById('taskProgress').textContent = task.progress + '%';
+            document.getElementById('taskProgressBar').style.width = task.progress + '%';
+            document.getElementById('taskDescription').textContent = task.description || '(Нет описания)';
+            document.getElementById('editLink').style.display = 'inline-block';
+        });
+
+    function addComment() {
+        const text = document.getElementById('commentText').value.trim();
+        if (!text) return;
+        fetch(`/api/projects/${projectId}/tasks/${taskId}/comments`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text})
+        })
+        .then(() => {
+            document.getElementById('commentText').value = '';
+            loadComments();
+        });
+    }
+
+    function loadComments() {
+        fetch(`/api/projects/${projectId}/tasks/${taskId}/comments`)
+            .then(r => r.json())
+            .then(comments => {
+                const list = document.getElementById('commentsList');
+                list.innerHTML = '';
+                comments.forEach(c => {
+                    const div = document.createElement('div');
+                    div.style.cssText = 'border: 1px solid var(--border-color); padding: 1rem; margin-bottom: 0.5rem; border-radius: 4px;';
+                    const time = new Date(c.createdAt).toLocaleString('ru-RU');
+                    div.innerHTML = `
+                        <div style="display: flex; justify-content: space-between;">
+                            <strong>${c.authorName}</strong>
+                            <span style="color: var(--text-light); font-size: 0.9rem;">${time}</span>
+                        </div>
+                        <p style="margin: 0.5rem 0 0 0;">${c.text}</p>
+                        ${c.authorEmail === username || username === 'owner' ? `<button onclick="deleteComment(${c.id})" style="color: var(--danger-color); border: none; background: none; cursor: pointer;">Удалить</button>` : ''}
+                    `;
+                    list.appendChild(div);
+                });
+            });
+    }
+
+    function deleteComment(id) {
+        if (!confirm('Удалить комментарий?')) return;
+        fetch(`/api/projects/${projectId}/tasks/${taskId}/comments/${id}`, {method: 'DELETE'})
+            .then(() => loadComments());
+    }
+
+    function loadActivities() {
+        fetch(`/api/projects/${projectId}/tasks/${taskId}/activities`)
+            .then(r => r.json())
+            .then(activities => {
+                const list = document.getElementById('activitiesList');
+                list.innerHTML = '';
+                activities.forEach(a => {
+                    const div = document.createElement('div');
+                    div.style.cssText = 'padding: 0.8rem 0; border-bottom: 1px solid var(--border-color);';
+                    const time = new Date(a.createdAt).toLocaleString('ru-RU');
+                    div.innerHTML = `
+                        <strong>${a.actorName}</strong> — ${a.description}
+                        <div style="color: var(--text-light); font-size: 0.9rem;">${time}</div>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+    }
+
+    loadComments();
+    loadActivities();
+    loadNotificationCount();
+
+    function loadNotificationCount() {
+        fetch('/api/notifications/count')
+            .then(r => r.json())
+            .then(data => {
+                const badge = document.getElementById('notificationCount');
+                if (badge && data.unread > 0) {
+                    badge.textContent = '(' + data.unread + ')';
+                    badge.style.color = 'var(--danger-color)';
+                }
+            })
+            .catch(() => {});
+    }
+</script>
+</body>
+</html>

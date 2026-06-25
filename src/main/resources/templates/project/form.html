@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="*{id} ? 'Редактировать проект' : 'Создать проект'">Проект</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <a href="/">📊 GanttPRO</a>
+            </div>
+            <div class="navbar-menu">
+                <a href="/dashboard" class="nav-link">Проекты</a>
+                <div class="nav-user">
+                    <span class="username" th:if="${#authentication}" th:text="${#authentication.name}"></span>
+                    <form action="/logout" method="post" style="display: inline;">
+                        <button type="submit" class="nav-logout">Выход</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="form-container">
+            <h1 th:text="*{id} ? 'Редактировать проект' : 'Создать новый проект'">Проект</h1>
+
+            <form th:action="*{id} ? '/api/projects/' + *{id} : '/api/projects'" method="POST"
+                  th:object="${projectForm}" class="form-box">
+
+                <div class="form-group">
+                    <label for="name">Название проекта:</label>
+                    <input type="text" id="name" name="name" th:field="*{name}" required
+                           placeholder="Введите название проекта" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Описание:</label>
+                    <textarea id="description" name="description" th:field="*{description}"
+                              placeholder="Введите описание проекта" class="form-control" rows="4"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="startDate">Дата начала:</label>
+                        <input type="date" id="startDate" name="startDate" th:field="*{startDate}"
+                               class="form-control">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="endDate">Дата окончания:</label>
+                        <input type="date" id="endDate" name="endDate" th:field="*{endDate}"
+                               class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <span th:text="*{id} ? 'Сохранить' : 'Создать проект'">Создать</span>
+                    </button>
+                    <a href="/dashboard" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2026 GanttPRO. Простое управление проектами с диаграммой Ганта.</p>
+    </footer>
+
+    <script>
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const method = this.action.includes('/') && this.action.split('/').pop() !== 'projects' ? 'PUT' : 'POST';
+
+            fetch(this.action, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: formData.get('name'),
+                    description: formData.get('description'),
+                    startDate: formData.get('startDate') || null,
+                    endDate: formData.get('endDate') || null
+                })
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = '/dashboard';
+                } else {
+                    alert('Ошибка при сохранении проекта');
+                }
+            }).catch(error => console.error('Error:', error));
+        });
+    </script>
+</body>
+</html>

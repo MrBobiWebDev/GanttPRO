@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <title>Создание проекта из шаблона - GanttPRO</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <a href="/">📊 GanttPRO</a>
+            </div>
+            <div class="navbar-menu">
+                <a href="/dashboard" class="nav-link">Проекты</a>
+                <div class="nav-user">
+                    <span class="username" th:if="${#authentication}" th:text="${#authentication.name}"></span>
+                    <form action="/logout" method="post" style="display: inline;">
+                        <button type="submit" class="nav-logout">Выход</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="form-container" style="max-width: 600px;">
+            <h1>Создание проекта</h1>
+            <p class="subtitle" th:text="'Из шаблона: ' + ${template.name}"></p>
+
+            <form th:action="@{/templates/{id}/create-project(id=${template.id})}" method="post">
+                <div class="form-group">
+                    <label for="name">Название проекта *</label>
+                    <input type="text" id="name" name="name" class="form-control" required
+                           th:value="${projectForm.name}" placeholder="Введите название проекта">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Описание</label>
+                    <textarea id="description" name="description" class="form-control" rows="4"
+                              placeholder="Введите описание проекта" th:text="${projectForm.description}"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="startDate">Дата начала *</label>
+                    <input type="date" id="startDate" name="startDate" class="form-control" required
+                           th:value="${projectForm.startDate}">
+                </div>
+
+                <div class="form-group">
+                    <label>Информация о шаблоне</label>
+                    <div style="padding: 1rem; background: #f3f4f6; border-radius: 4px;">
+                        <strong th:text="'Категория: ' + ${template.category}"></strong><br>
+                        <span th:text="${template.description}"></span><br><br>
+                        <strong>Задачи в шаблоне:</strong>
+                        <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                            <li th:each="task : ${template.tasks}"
+                                th:text="${task.title} + ' (' + ${task.durationDays} + ' дн.)'">
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Создать проект</button>
+                    <a href="/templates" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2026 GanttPRO. Простое управление проектами с диаграммой Ганта.</p>
+    </footer>
+</body>
+</html>

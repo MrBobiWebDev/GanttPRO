@@ -1,0 +1,1919 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <title th:text="${project?.name} ?: 'Проект'">Проект</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .task-sidebar {
+            position: fixed;
+            right: -500px;
+            top: 60px;
+            width: 500px;
+            height: calc(100vh - 60px);
+            background: white;
+            border-left: 1px solid var(--border-color);
+            box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+            transition: right 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        .task-sidebar.open {
+            right: 0;
+        }
+        .sidebar-overlay {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            width: 100%;
+            height: calc(100vh - 60px);
+            background: rgba(0,0,0,0.3);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 999;
+        }
+        .sidebar-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            background: white;
+        }
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        .sidebar-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+        .sidebar-close:hover {
+            color: var(--text-primary);
+        }
+        .sidebar-content {
+            padding: 1.5rem;
+        }
+        .sidebar-section {
+            margin-bottom: 1.5rem;
+        }
+        .sidebar-section h3 {
+            margin: 0 0 1rem 0;
+            font-size: 1.1rem;
+        }
+        .comment-item {
+            border: 1px solid var(--border-color);
+            padding: 0.8rem;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.3rem;
+        }
+        .comment-author {
+            font-weight: bold;
+        }
+        .comment-time {
+            color: var(--text-light);
+            font-size: 0.85rem;
+        }
+        .activity-item {
+            padding: 0.8rem 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+        }
+        .activity-time {
+            color: var(--text-light);
+            font-size: 0.85rem;
+        }
+        .task-row.clickable {
+            cursor: pointer;
+        }
+        .task-row.clickable:hover {
+            background-color: #f5f5f5;
+        }
+        .action-icons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0.3rem 0.6rem;
+        }
+        .icon-btn:hover {
+            opacity: 0.7;
+        }
+        .gantt-bar {
+            transition: none !important;
+        }
+        .gantt-bar::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 8px;
+            cursor: col-resize;
+            background: linear-gradient(90deg, transparent, rgba(0,0,0,0.1));
+        }
+        .gantt-today-line {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background-color: #ef4444;
+            top: 0;
+            opacity: 0.7;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .gantt-today-label {
+            position: absolute;
+            top: 0;
+            background-color: #ef4444;
+            color: white;
+            padding: 2px 6px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .gantt-months-header {
+            display: flex;
+            background-color: #f3f4f6;
+            border-bottom: 2px solid var(--border-color);
+            height: 30px;
+            flex-shrink: 0;
+        }
+        .gantt-month {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid var(--border-color);
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-dark);
+            padding: 0 0.5rem;
+        }
+        .save-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        }
+        .save-indicator.saving {
+            background-color: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+        .save-indicator.success {
+            background-color: #dcfce7;
+            color: #166534;
+            border: 1px solid #10b981;
+        }
+        .save-indicator.error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <a href="/">📊 GanttPRO</a>
+            </div>
+            <div class="navbar-menu">
+                <a href="/dashboard" class="nav-link">Проекты</a>
+                <a href="/notifications" class="nav-link">Уведомления <span class="notification-badge" id="notificationCount"></span></a>
+                <div class="nav-user">
+                    <span class="username" th:if="${#authentication}" th:text="${#authentication.name}"></span>
+                    <form action="/logout" method="post" style="display: inline;">
+                        <button type="submit" class="nav-logout">Выход</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="padding: 0; max-width: none;">
+        <div id="projectContainer" class="project-view" style="border-radius: 0; box-shadow: none;">
+            <div class="gantt-wrapper">
+                    <div class="gantt-left-column" id="ganttLeftColumn">
+                        <div class="gantt-header-left" style="display: flex; flex-direction: column;">
+                            <div style="height: 30px; background-color: #f3f4f6; border-bottom: 2px solid var(--border-color);"></div>
+                            <div style="display: flex; flex: 1;">
+                                <div class="gantt-header-tasks">Задачи</div>
+                                <div class="gantt-header-assignees">Исполнитель</div>
+                                <div class="gantt-header-status">Статус</div>
+                                <button class="gantt-collapse-btn" id="ganttCollapseBtn" title="Скрыть столбец задач">◀</button>
+                            </div>
+                        </div>
+                        <div class="gantt-col-resize" id="ganttResizeCol1"></div>
+                        <div class="gantt-col-resize" id="ganttResizeCol2"></div>
+                        <div class="gantt-tasks-left" id="ganttTasksLeft">
+                        </div>
+                    </div>
+
+                    <div class="gantt-resize-handle" id="ganttResizeHandle"></div>
+
+                    <button class="gantt-expand-btn" id="ganttExpandBtn" title="Показать столбец задач">▶</button>
+
+                    <div class="gantt-right-scroll" id="ganttRightScroll">
+                        <div class="gantt-timeline-header" id="ganttTimeline">
+                        </div>
+                        <div class="gantt-tasks-rows" id="ganttTasks">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="taskSidebar" class="task-sidebar">
+        <div class="sidebar-header">
+            <h2 id="sidebarTitle"></h2>
+            <button onclick="closeSidebar()" class="sidebar-close">✕</button>
+        </div>
+
+        <div class="sidebar-content">
+            <div id="sidebarError" class="alert alert-error" style="display:none;"></div>
+
+            <div class="sidebar-section">
+                <div class="form-group">
+                    <label>Статус</label>
+                    <select id="sidebarStatus" class="form-control" onchange="saveSidebarField('status')">
+                        <option value="TODO">Запланирована</option>
+                        <option value="IN_PROGRESS">В работе</option>
+                        <option value="DONE">Выполнена</option>
+                        <option value="BLOCKED">Заблокирована</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Приоритет</label>
+                    <select id="sidebarPriority" class="form-control" onchange="saveSidebarField('priority')">
+                        <option value="LOW">Низкий</option>
+                        <option value="MEDIUM">Средний</option>
+                        <option value="HIGH">Высокий</option>
+                        <option value="CRITICAL">Критический</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Прогресс (%)</label>
+                    <input type="number" id="sidebarProgress" class="form-control" min="0" max="100" onchange="saveSidebarField('progress')">
+                </div>
+
+                <div class="form-group">
+                    <label>Исполнитель</label>
+                    <input type="text" id="sidebarAssignee" class="form-control" onchange="saveSidebarField('assignee')">
+                </div>
+
+                <div class="form-group">
+                    <label>Дата начала</label>
+                    <input type="date" id="sidebarStartDate" class="form-control" onchange="saveSidebarField('startDate')">
+                </div>
+
+                <div class="form-group">
+                    <label>Дата окончания</label>
+                    <input type="date" id="sidebarEndDate" class="form-control" onchange="saveSidebarField('endDate')">
+                </div>
+
+                <div class="form-group">
+                    <label>Описание</label>
+                    <textarea id="sidebarDescription" class="form-control" rows="3" onchange="saveSidebarField('description')"></textarea>
+                </div>
+
+                <button onclick="deleteSidebarTask()" class="btn btn-danger" style="width: 100%;">🗑️ Удалить задачу</button>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+
+            <div class="sidebar-section" id="dependenciesSection">
+                <h3>Зависимости</h3>
+                <div id="sidebarDependencies" style="margin-bottom: 1rem; max-height: 200px; overflow-y: auto;"></div>
+                <select id="sidebarDependencySelect" class="form-control" style="margin-bottom: 0.5rem;">
+                    <option value="">— Выберите предшественника —</option>
+                </select>
+                <button onclick="addDependency()" class="btn btn-secondary" style="width: 100%;">Добавить зависимость</button>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+
+            <div class="sidebar-section">
+                <h3>Комментарии</h3>
+                <div id="sidebarComments" style="margin-bottom: 1rem; max-height: 250px; overflow-y: auto;"></div>
+                <textarea id="sidebarCommentText" class="form-control" placeholder="Добавить комментарий..." rows="2"></textarea>
+                <button onclick="addSidebarComment()" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem;">Отправить</button>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+
+            <div class="sidebar-section">
+                <h3>История</h3>
+                <div id="sidebarActivity" style="max-height: 250px; overflow-y: auto;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="sidebarOverlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <div id="saveIndicator" class="save-indicator" style="display: none;"></div>
+
+    <footer class="footer">
+        <p>&copy; 2026 GanttPRO. Простое управление проектами с диаграммой Ганта.</p>
+    </footer>
+
+    <script src="/static/js/gantt.js?v=1"></script>
+    <script>
+        const projectId = new URLSearchParams(window.location.search).get('id') ||
+                         window.location.pathname.split('/')[2];
+        let currentTaskId = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProjectData();
+            loadNotificationCount();
+        });
+
+        function loadProjectData() {
+            loadTasks();
+        }
+
+        function loadTasks() {
+            fetch(`/api/projects/${projectId}/tasks`)
+                .then(response => response.json())
+                .then(tasks => {
+                    currentTasks = tasks;
+                    renderGanttChart(tasks);
+                    setupGanttScrollSync();
+                    setupGanttResizeHandle();
+                    setupColumnResize();
+                    setupGanttCollapseExpand();
+                })
+                .catch(error => console.error('Error loading tasks:', error));
+        }
+
+        function renderTasks(tasks) {
+            const tasksList = document.getElementById('tasksList');
+            tasksList.innerHTML = '';
+
+            if (tasks.length === 0) {
+                tasksList.innerHTML = `
+                    <div class="empty-state">
+                        <p>📋 Нет задач в проекте</p>
+                        <a href="/projects/${projectId}/tasks/new" class="btn btn-secondary">Создать первую задачу</a>
+                    </div>
+                `;
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'tasks-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Название</th>
+                        <th>Статус</th>
+                        <th>Приоритет</th>
+                        <th>Прогресс</th>
+                        <th>Сроки</th>
+                        <th>Исполнитель</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="tasksBody">
+                </tbody>
+            `;
+
+            const tbody = table.querySelector('tbody');
+            const expandedTasks = JSON.parse(localStorage.getItem('expandedTasks') || '{}');
+
+            function renderTaskRow(task, level = 0) {
+                const isExpanded = expandedTasks[task.id] !== false;
+                const padding = level * 30;
+                const row = document.createElement('tr');
+                row.className = 'task-row clickable';
+                row.dataset.taskId = task.id;
+                row.dataset.parentId = task.parentTaskId || '';
+                row.style.display = isExpanded || task.parentTaskId ? 'table-row' : 'none';
+
+                const toggleBtn = task.hasSubtasks ?
+                    `<button onclick="event.stopPropagation(); toggleTask(${task.id})" class="toggle-btn" style="margin-right: 0.5rem;">${isExpanded ? '▼' : '▶'}</button>` :
+                    '<span style="display: inline-block; width: 32px;"></span>';
+
+                row.innerHTML = `
+                    <td onclick="openTaskSidebar(${task.id})" style="padding-left: 60px !important; margin-left: ${padding}px !important;">
+                        ${toggleBtn}
+                        ${escapeHtml(task.title)}
+                    </td>
+                    <td><span class="status-badge status-${task.status.toLowerCase()}">${getStatusName(task.status)}</span></td>
+                    <td><span style="background: ${getPriorityColor(task.priority)}; color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.85rem;">${getPriorityName(task.priority)}</span></td>
+                    <td>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${task.progress}%"></div>
+                            <span class="progress-text">${task.progress}%</span>
+                        </div>
+                    </td>
+                    <td>${formatDate(task.startDate)} - ${formatDate(task.endDate)}</td>
+                    <td>${task.assigneeName || '-'}</td>
+                    <td>
+                        <button onclick="event.stopPropagation(); openTaskSidebar(${task.id})" class="icon-btn" title="Открыть">⤢</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+
+                // Добавляем контекстное меню
+                row.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    showTaskContextMenu(e, task.id);
+                });
+
+                if (task.subtasks && isExpanded) {
+                    task.subtasks.forEach(subtask => renderTaskRow(subtask, level + 1));
+                }
+            }
+
+            tasks.forEach(task => renderTaskRow(task, 0));
+
+            // Добавляем строку "Добавить задачу" для корневого уровня
+            if (tbody) {
+                const addRootTaskRow = document.createElement('tr');
+                addRootTaskRow.className = 'task-row add-root-task-row';
+                addRootTaskRow.style.display = 'table-row';
+                addRootTaskRow.style.borderTop = '2px solid var(--border-color)';
+                addRootTaskRow.innerHTML = `
+                    <td onclick="event.stopPropagation(); addRootTask()" style="padding-left: 0px; color: var(--primary-color); cursor: pointer; font-style: italic; font-weight: bold;">
+                        + Добавить задачу
+                    </td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                `;
+                tbody.appendChild(addRootTaskRow);
+            }
+
+            tasksList.appendChild(table);
+        }
+
+        function toggleTask(taskId) {
+            const expandedTasks = JSON.parse(localStorage.getItem('expandedTasks') || '{}');
+            expandedTasks[taskId] = !expandedTasks[taskId];
+            localStorage.setItem('expandedTasks', JSON.stringify(expandedTasks));
+            loadTasks();
+        }
+
+        function addSubtask(parentTaskId) {
+            const title = prompt('Введите название подзадачи:');
+            if (!title) return;
+
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            const formData = {
+                title,
+                description: '',
+                startDate: today.toISOString().split('T')[0],
+                endDate: tomorrow.toISOString().split('T')[0],
+                status: 'TODO',
+                priority: 'MEDIUM',
+                progress: 0,
+                assigneeName: '',
+                parentTaskId,
+                subtasks: []
+            };
+
+            const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+            showSaveIndicator('💾 Создание подзадачи...', 'saving');
+
+            fetch(`/api/projects/${projectId}/tasks`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    [header]: token
+                },
+                body: JSON.stringify(formData)
+            }).then(response => response.json())
+            .then(newSubtask => {
+                // Находим родительскую задачу
+                const parentTask = findTaskInArray(parentTaskId);
+                if (parentTask) {
+                    if (!parentTask.subtasks) parentTask.subtasks = [];
+                    newSubtask.subtasks = newSubtask.subtasks || [];
+                    parentTask.subtasks.push(newSubtask);
+
+                    // Раскрываем родительскую задачу
+                    const expandedTasks = JSON.parse(localStorage.getItem('expandedTasks') || '{}');
+                    expandedTasks[parentTaskId] = true;
+                    localStorage.setItem('expandedTasks', JSON.stringify(expandedTasks));
+
+                    // Перерисовываем диаграмму
+                    renderGanttChart(currentTasks);
+                    setupGanttResizeHandle();
+                    setupColumnResize();
+
+                    showSaveIndicator('✓ Подзадача создана', 'success');
+                }
+            }).catch(err => {
+                console.error('Error creating subtask:', err);
+                showSaveIndicator('⚠️ Ошибка при создании', 'error');
+            });
+        }
+
+        function addRootTask() {
+            const title = prompt('Введите название задачи:');
+            if (!title) return;
+
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            const formData = {
+                title,
+                description: '',
+                startDate: today.toISOString().split('T')[0],
+                endDate: tomorrow.toISOString().split('T')[0],
+                status: 'TODO',
+                priority: 'MEDIUM',
+                progress: 0,
+                assigneeName: '',
+                subtasks: []
+            };
+
+            const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+            showSaveIndicator('💾 Создание задачи...', 'saving');
+
+            fetch(`/api/projects/${projectId}/tasks`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    [header]: token
+                },
+                body: JSON.stringify(formData)
+            }).then(response => response.json())
+            .then(newTask => {
+                // Добавляем новую задачу в currentTasks
+                newTask.subtasks = newTask.subtasks || [];
+                currentTasks.push(newTask);
+
+                // Перерисовываем диаграмму с новой задачей
+                renderGanttChart(currentTasks);
+                setupGanttResizeHandle();
+                setupColumnResize();
+
+                showSaveIndicator('✓ Задача создана', 'success');
+            }).catch(err => {
+                console.error('Error creating task:', err);
+                showSaveIndicator('⚠️ Ошибка при создании', 'error');
+            });
+        }
+
+        function showTaskContextMenu(event, taskId) {
+            const existingMenu = document.getElementById('taskContextMenu');
+            if (existingMenu) existingMenu.remove();
+
+            const menu = document.createElement('div');
+            menu.id = 'taskContextMenu';
+            menu.style.cssText = `
+                position: fixed;
+                top: ${event.clientY}px;
+                left: ${event.clientX}px;
+                background: white;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                z-index: 10000;
+                min-width: 200px;
+            `;
+
+            const addSubtaskOption = document.createElement('div');
+            addSubtaskOption.style.cssText = `
+                padding: 0.75rem 1rem;
+                cursor: pointer;
+            `;
+            addSubtaskOption.textContent = '+ Добавить подзадачу';
+            addSubtaskOption.onmouseover = () => {
+                addSubtaskOption.style.backgroundColor = 'var(--light-bg)';
+            };
+            addSubtaskOption.onmouseout = () => {
+                addSubtaskOption.style.backgroundColor = 'white';
+            };
+            addSubtaskOption.onclick = () => {
+                addSubtask(taskId);
+                menu.remove();
+            };
+
+            menu.appendChild(addSubtaskOption);
+            document.body.appendChild(menu);
+
+            document.addEventListener('click', () => {
+                if (menu.parentNode) menu.remove();
+            }, { once: true });
+        }
+
+        function getPriorityName(priority) {
+            const names = {'LOW': 'Низкий', 'MEDIUM': 'Средний', 'HIGH': 'Высокий', 'CRITICAL': 'Критический'};
+            return names[priority] || priority;
+        }
+
+        function getPriorityColor(priority) {
+            const colors = {'LOW': '#888', 'MEDIUM': '#2563eb', 'HIGH': '#f59e0b', 'CRITICAL': '#ef4444'};
+            return colors[priority] || '#888';
+        }
+
+        function openTaskSidebar(taskId) {
+            currentTaskId = parseInt(taskId);
+            console.log('Opening task with ID:', currentTaskId);
+            fetch(`/api/projects/${projectId}/tasks/${currentTaskId}`)
+                .then(r => r.json())
+                .then(task => {
+                    document.getElementById('sidebarTitle').textContent = task.title;
+                    document.getElementById('sidebarStatus').value = task.status;
+                    document.getElementById('sidebarPriority').value = task.priority;
+                    document.getElementById('sidebarProgress').value = task.progress;
+                    document.getElementById('sidebarAssignee').value = task.assigneeName || '';
+                    document.getElementById('sidebarStartDate').value = task.startDate;
+                    document.getElementById('sidebarEndDate').value = task.endDate;
+                    document.getElementById('sidebarDescription').value = task.description || '';
+                    document.getElementById('sidebarError').style.display = 'none';
+                    loadSidebarComments();
+                    loadSidebarActivity();
+                    loadSidebarDependencies();
+                    loadAvailableTasks();
+                    document.getElementById('taskSidebar').classList.add('open');
+                    document.getElementById('sidebarOverlay').classList.add('open');
+                })
+                .catch(err => {
+                    console.error('Error loading task:', err);
+                    const errorDiv = document.getElementById('sidebarError');
+                    errorDiv.textContent = 'Ошибка при загрузке задачи';
+                    errorDiv.style.display = 'block';
+                });
+        }
+
+        function closeSidebar() {
+            document.getElementById('taskSidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('open');
+            currentTaskId = null;
+        }
+
+        function saveSidebarField(field) {
+            if (!currentTaskId) return;
+
+            showSaveIndicator('💾 Сохранение...', 'saving');
+
+            const formData = {
+                title: document.getElementById('sidebarTitle').textContent,
+                status: document.getElementById('sidebarStatus').value,
+                priority: document.getElementById('sidebarPriority').value,
+                progress: parseInt(document.getElementById('sidebarProgress').value),
+                assigneeName: document.getElementById('sidebarAssignee').value,
+                startDate: document.getElementById('sidebarStartDate').value,
+                endDate: document.getElementById('sidebarEndDate').value,
+                description: document.getElementById('sidebarDescription').value
+            };
+
+            const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+            fetch(`/api/projects/${projectId}/tasks/${currentTaskId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    [header]: token
+                },
+                body: JSON.stringify(formData)
+            }).then(() => {
+                // Обновляем задачу в памяти и перерисовываем везде
+                updateTaskAndRefresh(currentTaskId, formData);
+                showSaveIndicator('✓ Данные сохранены', 'success');
+            }).catch(err => {
+                console.error('Error:', err);
+                showSaveIndicator('⚠️ Ошибка при сохранении', 'error');
+            });
+        }
+
+        function addSidebarComment() {
+            if (!currentTaskId) return;
+            const text = document.getElementById('sidebarCommentText').value.trim();
+            if (!text) return;
+
+            showSaveIndicator('💾 Сохранение...', 'saving');
+
+            const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+            fetch(`/api/projects/${projectId}/tasks/${currentTaskId}/comments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    [header]: token
+                },
+                body: JSON.stringify({text})
+            }).then(() => {
+                document.getElementById('sidebarCommentText').value = '';
+                showSaveIndicator('✓ Комментарий добавлен', 'success');
+                loadSidebarComments();
+            }).catch(err => {
+                console.error('Error:', err);
+                showSaveIndicator('⚠️ Ошибка при сохранении', 'error');
+            });
+        }
+
+        function loadSidebarComments() {
+            if (!currentTaskId) return;
+            fetch(`/api/projects/${projectId}/tasks/${currentTaskId}/comments`)
+                .then(r => r.json())
+                .then(comments => {
+                    const list = document.getElementById('sidebarComments');
+                    list.innerHTML = '';
+                    comments.forEach(c => {
+                        const div = document.createElement('div');
+                        div.className = 'comment-item';
+                        const time = new Date(c.createdAt).toLocaleString('ru-RU');
+                        div.innerHTML = `
+                            <div class="comment-header">
+                                <span class="comment-author">${c.authorName}</span>
+                                <span class="comment-time">${time}</span>
+                            </div>
+                            <p style="margin: 0.3rem 0 0 0;">${c.text}</p>
+                        `;
+                        list.appendChild(div);
+                    });
+                });
+        }
+
+        function loadSidebarActivity() {
+            if (!currentTaskId) return;
+            fetch(`/api/projects/${projectId}/tasks/${currentTaskId}/activities`)
+                .then(r => r.json())
+                .then(activities => {
+                    const list = document.getElementById('sidebarActivity');
+                    list.innerHTML = '';
+                    activities.forEach(a => {
+                        const div = document.createElement('div');
+                        div.className = 'activity-item';
+                        const time = new Date(a.createdAt).toLocaleString('ru-RU');
+                        div.innerHTML = `
+                            <strong>${a.actorName}</strong> — ${a.description}
+                            <div class="activity-time">${time}</div>
+                        `;
+                        list.appendChild(div);
+                    });
+                });
+        }
+
+        function deleteSidebarTask() {
+            if (!currentTaskId) {
+                console.error('No task ID set');
+                return;
+            }
+
+            console.log('Attempting to delete task ID:', currentTaskId);
+            if (!confirm('Вы уверены, что хотите удалить эту задачу?')) return;
+
+            const errorDiv = document.getElementById('sidebarError');
+
+            fetch(`/api/projects/${projectId}/tasks/${currentTaskId}`, {
+                method: 'DELETE',
+                credentials: 'same-origin'
+            }).then(response => {
+                console.log('Delete response status:', response.status);
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        try {
+                            const data = JSON.parse(text);
+                            throw new Error(data.message || 'Ошибка при удалении задачи');
+                        } catch (e) {
+                            throw new Error(text || 'Ошибка при удалении задачи');
+                        }
+                    });
+                }
+                console.log('Task deleted successfully');
+                closeSidebar();
+                loadTasks();
+            }).catch(err => {
+                console.error('Error deleting task:', err);
+                errorDiv.textContent = err.message || 'Не удалось удалить задачу. Проверьте, нет ли зависимостей.';
+                errorDiv.style.display = 'block';
+            });
+        }
+
+        let ganttTimelineStartDate = null;
+        let ganttTimelineWidth = 0;
+        const GANTT_DAY_WIDTH = 32;
+        let currentTasks = [];
+
+        function findTaskInArray(taskId, tasks = currentTasks) {
+            function search(taskList) {
+                for (let task of taskList) {
+                    if (task.id === taskId) return task;
+                    if (task.subtasks && task.subtasks.length > 0) {
+                        const found = search(task.subtasks);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+            return search(tasks);
+        }
+
+        function updateTaskAndRefresh(taskId, updates) {
+            const task = findTaskInArray(taskId);
+            if (task) {
+                Object.assign(task, updates);
+                renderGanttChart(currentTasks);
+                setupGanttResizeHandle();
+                setupColumnResize();
+            }
+        }
+
+        function showSaveIndicator(message, type = 'saving') {
+            const indicator = document.getElementById('saveIndicator');
+            indicator.textContent = message;
+            indicator.className = `save-indicator ${type}`;
+            indicator.style.display = 'block';
+
+            if (type !== 'saving') {
+                setTimeout(() => {
+                    indicator.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        function saveDateChanges(taskId, startDate, endDate, retryCount = 0) {
+            const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+            if (retryCount === 0) {
+                showSaveIndicator('💾 Сохранение дат...', 'saving');
+                console.log(`Saving task ${taskId}: ${startDate} to ${endDate}`);
+            }
+
+            // Получаем текущую задачу из памяти
+            const task = findTaskInArray(taskId);
+            if (!task) {
+                console.error('Task not found in memory:', taskId);
+                showSaveIndicator('⚠️ Задача не найдена', 'error');
+                return;
+            }
+
+            // Отправляем полный объект задачи с новыми датами
+            const payload = {
+                title: task.title,
+                description: task.description || '',
+                startDate: startDate,
+                endDate: endDate,
+                status: task.status,
+                priority: task.priority,
+                progress: task.progress,
+                assigneeName: task.assigneeName || '',
+                parentTaskId: task.parentTaskId || null
+            };
+            const requestBody = JSON.stringify(payload);
+
+            // Отправляем на сервер асинхронно
+            fetch(`/api/projects/${projectId}/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    [header]: token
+                },
+                body: requestBody
+            }).then(response => {
+                console.log(`Response status: ${response.status}`);
+
+                // Проверяем, успешна ли операция
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        console.error('Server error response:', text);
+                        throw new Error(`Server error: ${response.status} - ${text}`);
+                    });
+                }
+
+                // Пробуем парсить как JSON
+                return response.text().then(text => {
+                    console.log('Response text:', text);
+                    if (text) {
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            console.warn('Could not parse response as JSON, using empty object');
+                            return {};
+                        }
+                    }
+                    return {};
+                });
+            }).then(data => {
+                console.log('Dates saved successfully:', data);
+                // Обновляем в памяти после успешного сохранения
+                const task = findTaskInArray(taskId);
+                if (task) {
+                    task.startDate = startDate;
+                    task.endDate = endDate;
+                }
+                showSaveIndicator('✓ Дата изменена успешно', 'success');
+            }).catch(err => {
+                console.error('Error saving dates:', err);
+                // Повторяем попытку до 3 раз с увеличивающейся задержкой
+                if (retryCount < 3) {
+                    const delay = 1000 * (retryCount + 1);
+                    console.log(`Retry attempt ${retryCount + 1}/3 after ${delay}ms`);
+                    showSaveIndicator(`⏳ Повторная попытка ${retryCount + 1}/3...`, 'saving');
+                    setTimeout(() => {
+                        saveDateChanges(taskId, startDate, endDate, retryCount + 1);
+                    }, delay);
+                } else {
+                    console.error('All retry attempts failed for task', taskId);
+                    console.error('Last attempted data:', { startDate, endDate });
+                    showSaveIndicator('⚠️ Ошибка сохранения. Данные остаются в приложении.', 'error');
+                }
+            });
+        }
+
+        function renderGanttChart(tasks) {
+            calculateTimelineRange(tasks);
+            renderGanttTimeline(tasks);
+            renderGanttTasksRows(tasks);
+        }
+
+        function calculateTimelineRange(tasks) {
+            const dates = [];
+            tasks.forEach(task => {
+                if (task.startDate) dates.push(new Date(task.startDate));
+                if (task.endDate) dates.push(new Date(task.endDate));
+            });
+
+            // Начало диаграммы - 30 дней в прошлое от сегодня
+            const today = new Date();
+            const timelineStart = new Date(today);
+            timelineStart.setDate(timelineStart.getDate() - 30);
+
+            let maxDate = today;
+
+            // Если есть задачи, найти максимальную дату
+            if (dates.length > 0) {
+                const taskMaxDate = new Date(Math.max(...dates));
+                if (taskMaxDate > maxDate) {
+                    maxDate = taskMaxDate;
+                }
+            }
+
+            // Добавить 30 дней в будущее от максимальной даты
+            const timelineEnd = new Date(maxDate);
+            timelineEnd.setDate(timelineEnd.getDate() + 30);
+
+            ganttTimelineStartDate = timelineStart;
+            const totalDays = Math.floor((timelineEnd - timelineStart) / (1000 * 60 * 60 * 24)) + 1;
+            ganttTimelineWidth = Math.max(totalDays * GANTT_DAY_WIDTH, GANTT_DAY_WIDTH * 7);
+        }
+
+        function renderGanttTimeline(tasks) {
+            const timelineContainer = document.getElementById('ganttTimeline').parentElement;
+
+            // Удаляем старый месячный заголовок если есть
+            const oldMonthsHeader = timelineContainer.querySelector('.gantt-months-header');
+            if (oldMonthsHeader) oldMonthsHeader.remove();
+
+            // Создаем месячный заголовок
+            const monthsHeader = document.createElement('div');
+            monthsHeader.className = 'gantt-months-header';
+            monthsHeader.style.minWidth = ganttTimelineWidth + 'px';
+            monthsHeader.style.width = ganttTimelineWidth + 'px';
+
+            const timeline = document.getElementById('ganttTimeline');
+            timeline.innerHTML = '';
+            timeline.style.minWidth = ganttTimelineWidth + 'px';
+            timeline.style.width = ganttTimelineWidth + 'px';
+            timeline.style.position = 'relative';
+
+            if (!ganttTimelineStartDate) return;
+
+            let currentDate = new Date(ganttTimelineStartDate);
+            const totalDays = Math.floor(ganttTimelineWidth / GANTT_DAY_WIDTH);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let todayPosition = -1;
+
+            // Отслеживаем месяцы для заголовка
+            let currentMonth = null;
+            let monthStartPos = 0;
+            let monthDayCount = 0;
+
+            for (let i = 0; i < totalDays; i++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'gantt-day';
+
+                // Проверяем месяц
+                const monthKey = currentDate.getFullYear() + '-' + currentDate.getMonth();
+                if (monthKey !== currentMonth) {
+                    // Добавляем предыдущий месяц в заголовок
+                    if (currentMonth !== null && monthDayCount > 0) {
+                        const monthDiv = document.createElement('div');
+                        monthDiv.className = 'gantt-month';
+                        monthDiv.style.width = (monthDayCount * GANTT_DAY_WIDTH) + 'px';
+                        const prevDate = new Date(currentDate);
+                        prevDate.setMonth(prevDate.getMonth() - 1);
+                        monthDiv.textContent = prevDate.toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' });
+                        monthsHeader.appendChild(monthDiv);
+                    }
+                    currentMonth = monthKey;
+                    monthStartPos = i * GANTT_DAY_WIDTH;
+                    monthDayCount = 0;
+                }
+                monthDayCount++;
+
+                // Проверяем, это сегодня?
+                const checkDate = new Date(currentDate);
+                checkDate.setHours(0, 0, 0, 0);
+                if (checkDate.getTime() === today.getTime()) {
+                    todayPosition = i * GANTT_DAY_WIDTH;
+                    dayDiv.style.backgroundColor = '#fee2e2';
+                    dayDiv.style.fontWeight = 'bold';
+                    dayDiv.style.color = '#991b1b';
+                }
+
+                dayDiv.textContent = currentDate.getDate();
+                dayDiv.title = currentDate.toLocaleDateString('ru-RU');
+                timeline.appendChild(dayDiv);
+
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            // Добавляем последний месяц
+            if (currentMonth !== null && monthDayCount > 0) {
+                const monthDiv = document.createElement('div');
+                monthDiv.className = 'gantt-month';
+                monthDiv.style.width = (monthDayCount * GANTT_DAY_WIDTH) + 'px';
+                const lastDate = new Date(currentDate);
+                lastDate.setDate(lastDate.getDate() - 1);
+                monthDiv.textContent = lastDate.toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' });
+                monthsHeader.appendChild(monthDiv);
+            }
+
+            // Вставляем месячный заголовок перед временной шкалой
+            timelineContainer.insertBefore(monthsHeader, timeline);
+
+            // Добавляем красную линию на сегодняшнюю дату
+            if (todayPosition >= 0) {
+                const todayLine = document.createElement('div');
+                todayLine.className = 'gantt-today-line';
+                todayLine.style.left = todayPosition + 'px';
+                timeline.appendChild(todayLine);
+
+                const todayLabel = document.createElement('div');
+                todayLabel.className = 'gantt-today-label';
+                todayLabel.textContent = 'СЕГОДНЯ';
+                todayLabel.style.left = todayPosition + 'px';
+                timeline.appendChild(todayLabel);
+            }
+        }
+
+        function renderGanttTasksRows(tasks) {
+            const ganttTasksRows = document.getElementById('ganttTasks');
+            const ganttTasksLeft = document.getElementById('ganttTasksLeft');
+            ganttTasksRows.innerHTML = '';
+            ganttTasksLeft.innerHTML = '';
+
+            ganttTasksRows.style.minWidth = ganttTimelineWidth + 'px';
+            ganttTasksRows.style.position = 'relative';
+
+            const expandedTasks = JSON.parse(localStorage.getItem('expandedTasks') || '{}');
+
+            function renderGanttTaskRow(task, level = 0) {
+                const isExpanded = expandedTasks[task.id] !== false;
+                const padding = level * 30;
+                const isRootTask = !task.parentTaskId;
+
+                const taskRowRight = document.createElement('div');
+                taskRowRight.className = 'gantt-task-row';
+                taskRowRight.style.display = isRootTask || isExpanded ? 'flex' : 'none';
+
+                const barsDiv = document.createElement('div');
+                barsDiv.className = 'gantt-bars';
+                barsDiv.style.minWidth = ganttTimelineWidth + 'px';
+
+                const taskOffsetDays = calculateOffsetDays(task.startDate);
+                const taskDurationDays = calculateDurationDays(task.startDate, task.endDate);
+                const barLeft = taskOffsetDays * GANTT_DAY_WIDTH;
+                const barWidth = taskDurationDays * GANTT_DAY_WIDTH;
+
+                const bar = document.createElement('div');
+                bar.className = `gantt-bar status-${task.status.toLowerCase()}`;
+                bar.title = `${task.title} - ${task.progress}%`;
+                bar.style.left = barLeft + 'px';
+                bar.style.width = Math.max(barWidth, GANTT_DAY_WIDTH) + 'px';
+                bar.style.position = 'absolute';
+                bar.innerHTML = `<span class="gantt-progress">${task.title}</span>`;
+                bar.dataset.taskId = task.id;
+                bar.dataset.startDate = task.startDate;
+                bar.dataset.endDate = task.endDate;
+
+                // Drag functionality
+                let isDragging = false;
+                let dragStartX = 0;
+                let dragStartLeft = barLeft;
+
+                bar.addEventListener('mousedown', (e) => {
+                    // Check if right edge is being dragged for resize
+                    const rect = bar.getBoundingClientRect();
+                    const isResizing = e.clientX > rect.right - 10;
+
+                    if (isResizing) {
+                        // Resize functionality
+                        let resizeStartX = e.clientX;
+                        let resizeStartWidth = parseFloat(bar.style.width);
+                        document.body.style.cursor = 'col-resize';
+
+                        const handleResizeMove = (moveEvent) => {
+                            const diff = moveEvent.clientX - resizeStartX;
+                            const newWidth = Math.max(GANTT_DAY_WIDTH, resizeStartWidth + diff);
+                            bar.style.width = newWidth + 'px';
+                        };
+
+                        const handleResizeEnd = () => {
+                            document.removeEventListener('mousemove', handleResizeMove);
+                            document.removeEventListener('mouseup', handleResizeEnd);
+                            document.body.style.cursor = 'default';
+
+                            // Calculate new end date
+                            const newDurationDays = Math.round(parseFloat(bar.style.width) / GANTT_DAY_WIDTH);
+                            const startDate = new Date(task.startDate);
+                            const newEndDate = new Date(startDate);
+                            newEndDate.setDate(newEndDate.getDate() + newDurationDays - 1);
+                            const newEndDateStr = newEndDate.toISOString().split('T')[0];
+
+                            // Update task object in memory
+                            task.endDate = newEndDateStr;
+
+                            // Re-render immediately without waiting for server
+                            renderGanttChart(currentTasks);
+                            setupGanttResizeHandle();
+                            setupColumnResize();
+
+                            // Save to backend asynchronously
+                            saveDateChanges(task.id, task.startDate, newEndDateStr);
+                        };
+
+                        document.addEventListener('mousemove', handleResizeMove);
+                        document.addEventListener('mouseup', handleResizeEnd);
+                    } else {
+                        // Drag functionality
+                        isDragging = true;
+                        dragStartX = e.clientX;
+                        dragStartLeft = parseFloat(bar.style.left);
+                        document.body.style.cursor = 'grabbing';
+
+                        const handleDragMove = (moveEvent) => {
+                            if (!isDragging) return;
+                            const diff = moveEvent.clientX - dragStartX;
+                            const newLeft = Math.max(0, dragStartLeft + diff);
+                            bar.style.left = newLeft + 'px';
+                        };
+
+                        const handleDragEnd = () => {
+                            isDragging = false;
+                            document.removeEventListener('mousemove', handleDragMove);
+                            document.removeEventListener('mouseup', handleDragEnd);
+                            document.body.style.cursor = 'default';
+
+                            // Calculate new dates
+                            const newOffsetDays = Math.round(parseFloat(bar.style.left) / GANTT_DAY_WIDTH);
+                            const newStartDate = new Date(ganttTimelineStartDate);
+                            newStartDate.setDate(newStartDate.getDate() + newOffsetDays);
+                            const newStartDateStr = newStartDate.toISOString().split('T')[0];
+
+                            const durationDays = calculateDurationDays(task.startDate, task.endDate);
+                            const newEndDate = new Date(newStartDate);
+                            newEndDate.setDate(newEndDate.getDate() + durationDays - 1);
+                            const newEndDateStr = newEndDate.toISOString().split('T')[0];
+
+                            // Update task object in memory
+                            task.startDate = newStartDateStr;
+                            task.endDate = newEndDateStr;
+
+                            // Re-render immediately without waiting for server
+                            renderGanttChart(currentTasks);
+                            setupGanttResizeHandle();
+                            setupColumnResize();
+
+                            // Save to backend asynchronously
+                            saveDateChanges(task.id, newStartDateStr, newEndDateStr);
+                        };
+
+                        document.addEventListener('mousemove', handleDragMove);
+                        document.addEventListener('mouseup', handleDragEnd);
+                    }
+                });
+
+                bar.addEventListener('mouseenter', (e) => {
+                    const rect = e.target.getBoundingClientRect();
+                    if (e.clientX > rect.right - 10) {
+                        e.target.style.cursor = 'col-resize';
+                    } else {
+                        e.target.style.cursor = 'grab';
+                    }
+                });
+
+                barsDiv.appendChild(bar);
+                taskRowRight.appendChild(barsDiv);
+                ganttTasksRows.appendChild(taskRowRight);
+
+                const taskRow = document.createElement('div');
+                taskRow.className = 'gantt-task-left-row';
+                taskRow.style.display = isRootTask || isExpanded ? 'flex' : 'none';
+
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'gantt-label';
+                labelDiv.style.cursor = 'pointer';
+                labelDiv.style.paddingLeft = (padding + 30) + 'px';
+                labelDiv.style.fontWeight = task.hasSubtasks ? 'bold' : 'normal';
+
+                const toggleBtn = task.hasSubtasks ?
+                    `<button onclick="event.stopPropagation(); toggleTask(${task.id})" class="toggle-btn" style="margin-right: 0.5rem; background: none; border: none; cursor: pointer; font-size: 0.8rem;">${isExpanded ? '▼' : '▶'}</button>` :
+                    '';
+
+                labelDiv.innerHTML = `${toggleBtn} <span class="task-title-text">${task.title}</span>`;
+
+                let clickCount = 0;
+                let clickTimer = null;
+
+                labelDiv.onclick = (e) => {
+                    if (e.target.classList.contains('task-title-text') || e.target.closest('.task-title-text')) {
+                        clickCount++;
+                        if (clickCount === 1) {
+                            clickTimer = setTimeout(() => {
+                                clickCount = 0;
+                                openTaskSidebar(task.id);
+                            }, 300);
+                        } else if (clickCount === 2) {
+                            clearTimeout(clickTimer);
+                            clickCount = 0;
+                            const titleSpan = labelDiv.querySelector('.task-title-text');
+                            if (titleSpan) {
+                                const currentTitle = titleSpan.textContent;
+                                const input = document.createElement('input');
+                                input.type = 'text';
+                                input.value = currentTitle;
+                                input.style.cssText = 'padding: 0.25rem; font-size: 0.9rem; border: 1px solid var(--primary-color); border-radius: 4px;';
+
+                                titleSpan.replaceWith(input);
+                                input.focus();
+                                input.select();
+
+                                const saveTitle = () => {
+                                    const newTitle = input.value.trim();
+                                    if (newTitle && newTitle !== currentTitle) {
+                                        const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+                                        const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+                                        showSaveIndicator('💾 Сохранение...', 'saving');
+                                        fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+                                            method: 'PUT',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                [header]: token
+                                            },
+                                            body: JSON.stringify({ title: newTitle })
+                                        }).then(() => {
+                                            updateTaskAndRefresh(task.id, { title: newTitle });
+                                            showSaveIndicator('✓ Название обновлено', 'success');
+                                        }).catch(err => {
+                                            console.error('Error updating task:', err);
+                                            showSaveIndicator('⚠️ Ошибка при сохранении', 'error');
+                                        });
+                                    } else {
+                                        const span = document.createElement('span');
+                                        span.className = 'task-title-text';
+                                        span.textContent = currentTitle;
+                                        input.replaceWith(span);
+                                    }
+                                };
+
+                                input.addEventListener('blur', saveTitle);
+                                input.addEventListener('keydown', (e) => {
+                                    if (e.key === 'Enter') saveTitle();
+                                    if (e.key === 'Escape') {
+                                        const span = document.createElement('span');
+                                        span.className = 'task-title-text';
+                                        span.textContent = currentTitle;
+                                        input.replaceWith(span);
+                                    }
+                                });
+                            }
+                        }
+                    } else {
+                        openTaskSidebar(task.id);
+                    }
+                };
+
+                const assigneeDiv = document.createElement('div');
+                assigneeDiv.className = 'gantt-assignee';
+                assigneeDiv.style.cursor = 'pointer';
+                assigneeDiv.textContent = task.assigneeName || '-';
+                assigneeDiv.title = task.assigneeName || 'Не назначен';
+                assigneeDiv.onclick = (e) => {
+                    e.stopPropagation();
+                    openAssigneeDropdown(assigneeDiv, task.id, task.assigneeName);
+                };
+
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'gantt-status';
+                statusDiv.style.cursor = 'pointer';
+                statusDiv.textContent = getStatusName(task.status);
+                statusDiv.title = getStatusName(task.status);
+                statusDiv.onclick = (e) => {
+                    e.stopPropagation();
+                    openStatusDropdown(statusDiv, task.id, task.status);
+                };
+
+                taskRow.appendChild(labelDiv);
+                taskRow.appendChild(assigneeDiv);
+                taskRow.appendChild(statusDiv);
+                ganttTasksLeft.appendChild(taskRow);
+
+                // Добавляем контекстное меню в Ганту
+                taskRow.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    showTaskContextMenu(e, task.id);
+                });
+
+                if (task.subtasks && isExpanded) {
+                    task.subtasks.forEach(subtask => renderGanttTaskRow(subtask, level + 1));
+                }
+            }
+
+            tasks.forEach(task => renderGanttTaskRow(task, 0));
+
+            // Добавляем "Добавить задачу" в Ганта для корневого уровня
+            const addTaskRowRight = document.createElement('div');
+            addTaskRowRight.className = 'gantt-task-row add-root-task-row';
+            addTaskRowRight.style.display = 'flex';
+
+            const barsDiv = document.createElement('div');
+            barsDiv.className = 'gantt-bars';
+            barsDiv.style.minWidth = ganttTimelineWidth + 'px';
+            addTaskRowRight.appendChild(barsDiv);
+            ganttTasksRows.appendChild(addTaskRowRight);
+
+            // Добавляем красную линию на сегодняшнюю дату
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (ganttTimelineStartDate) {
+                const diffTime = today - ganttTimelineStartDate;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays >= 0 && diffDays * GANTT_DAY_WIDTH < ganttTimelineWidth) {
+                    const todayLine = document.createElement('div');
+                    todayLine.className = 'gantt-today-line';
+                    todayLine.style.left = (diffDays * GANTT_DAY_WIDTH) + 'px';
+                    ganttTasksRows.appendChild(todayLine);
+                }
+            }
+
+            const addTaskRow = document.createElement('div');
+            addTaskRow.className = 'gantt-task-left-row add-root-task-row';
+            addTaskRow.style.display = 'flex';
+            addTaskRow.style.borderTop = '2px solid var(--border-color)';
+
+            const addLabelDiv = document.createElement('div');
+            addLabelDiv.className = 'gantt-label';
+            addLabelDiv.style.cursor = 'pointer';
+            addLabelDiv.style.color = 'var(--primary-color)';
+            addLabelDiv.style.fontStyle = 'italic';
+            addLabelDiv.style.fontWeight = 'bold';
+            addLabelDiv.innerHTML = '+ Добавить задачу';
+            addLabelDiv.onclick = (e) => {
+                e.stopPropagation();
+                addRootTask();
+            };
+
+            addTaskRow.appendChild(addLabelDiv);
+            ganttTasksLeft.appendChild(addTaskRow);
+        }
+
+        function calculateOffsetDays(startDateStr) {
+            if (!ganttTimelineStartDate) return 0;
+            const startDate = new Date(startDateStr);
+            const diffTime = startDate - ganttTimelineStartDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return Math.max(diffDays, 0);
+        }
+
+        function calculateDurationDays(startDateStr, endDateStr) {
+            const startDate = new Date(startDateStr);
+            const endDate = new Date(endDateStr);
+            const diffTime = endDate - startDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            return Math.max(diffDays, 1);
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ru-RU', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        function setupGanttScrollSync() {
+            // Синхронизация не требуется - все элементы находятся в одном контейнере
+            // и скроллятся вместе
+        }
+
+        function setupColumnResize() {
+            const resizeCol1 = document.getElementById('ganttResizeCol1');
+            const resizeCol2 = document.getElementById('ganttResizeCol2');
+            const root = document.documentElement;
+
+            if (!resizeCol1 || !resizeCol2) return;
+
+            let isResizing = false;
+            let resizingColumn = null;
+            let startX = 0;
+            let col1Width = 250;
+            let col2Width = 120;
+
+            const updateCSSVariables = () => {
+                root.style.setProperty('--col1-width', col1Width + 'px');
+                root.style.setProperty('--col2-width', col2Width + 'px');
+            };
+
+            const setupResize = (resizeHandle, handleType) => {
+                resizeHandle.addEventListener('mousedown', (e) => {
+                    isResizing = true;
+                    resizingColumn = handleType;
+                    startX = e.clientX;
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
+                }, false);
+            };
+
+            setupResize(resizeCol1, 'col1');
+            setupResize(resizeCol2, 'col2');
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing || !resizingColumn) return;
+
+                const diff = e.clientX - startX;
+
+                if (resizingColumn === 'col1') {
+                    const newCol1Width = Math.max(80, col1Width + diff);
+                    col1Width = newCol1Width;
+                } else if (resizingColumn === 'col2') {
+                    const newCol2Width = Math.max(80, col2Width + diff);
+                    col2Width = newCol2Width;
+                }
+
+                updateCSSVariables();
+                startX = e.clientX;
+            }, false);
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    resizingColumn = null;
+                    document.body.style.cursor = 'default';
+                    document.body.style.userSelect = 'auto';
+                }
+            }, false);
+        }
+
+        function setupGanttResizeHandle() {
+            const resizeHandle = document.getElementById('ganttResizeHandle');
+            const leftColumn = document.getElementById('ganttLeftColumn');
+
+            if (!resizeHandle || !leftColumn) return;
+
+            let isResizing = false;
+            let startX = 0;
+            let startWidth = 0;
+
+            resizeHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startX = e.clientX;
+                startWidth = leftColumn.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            }, false);
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const diff = e.clientX - startX;
+                const newWidth = Math.max(350, startWidth + diff);
+                leftColumn.style.flex = `0 0 ${newWidth}px`;
+            }, false);
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = 'default';
+                    document.body.style.userSelect = 'auto';
+                }
+            }, false);
+        }
+
+        let savedFlexWidth = null;
+
+        function setupGanttCollapseExpand() {
+            const collapseBtn = document.getElementById('ganttCollapseBtn');
+            const expandBtn = document.getElementById('ganttExpandBtn');
+            const leftColumn = document.getElementById('ganttLeftColumn');
+            const resizeHandle = document.getElementById('ganttResizeHandle');
+
+            if (!collapseBtn || !expandBtn || !leftColumn || !resizeHandle) return;
+
+            collapseBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                savedFlexWidth = leftColumn.style.flex;
+                leftColumn.style.flex = '';
+                leftColumn.classList.add('collapsed');
+                resizeHandle.style.display = 'none';
+                expandBtn.classList.add('visible');
+            }, false);
+
+            expandBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                leftColumn.classList.remove('collapsed');
+                if (savedFlexWidth) {
+                    leftColumn.style.flex = savedFlexWidth;
+                }
+                resizeHandle.style.display = 'flex';
+                expandBtn.classList.remove('visible');
+            }, false);
+        }
+
+        function getStatusName(status) {
+            const names = {
+                'TODO': 'Запланирована',
+                'IN_PROGRESS': 'В работе',
+                'DONE': 'Выполнена',
+                'BLOCKED': 'Заблокирована'
+            };
+            return names[status] || status;
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function openStatusDropdown(element, taskId, currentStatus) {
+            if (element.querySelector('select')) return;
+
+            const select = document.createElement('select');
+            select.style.width = '100%';
+            select.style.padding = '0.25rem';
+            select.style.fontSize = '0.9rem';
+            select.style.border = '1px solid var(--primary-color)';
+
+            const statuses = [
+                { value: 'TODO', label: 'Запланирована' },
+                { value: 'IN_PROGRESS', label: 'В работе' },
+                { value: 'DONE', label: 'Выполнена' },
+                { value: 'BLOCKED', label: 'Заблокирована' }
+            ];
+
+            statuses.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status.value;
+                option.textContent = status.label;
+                if (status.value === currentStatus) option.selected = true;
+                select.appendChild(option);
+            });
+
+            element.innerHTML = '';
+            element.appendChild(select);
+            select.focus();
+
+            const saveStatus = () => {
+                const newStatus = select.value;
+                showSaveIndicator('💾 Сохранение...', 'saving');
+                fetch(`/api/projects/${projectId}/tasks/${taskId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                })
+                .then(r => r.json())
+                .then(updatedTask => {
+                    element.textContent = getStatusName(newStatus);
+                    element.title = getStatusName(newStatus);
+                    // Обновляем везде
+                    updateTaskAndRefresh(taskId, { status: newStatus });
+                    showSaveIndicator('✓ Статус обновлён', 'success');
+                })
+                .catch(err => {
+                    console.error('Error updating status:', err);
+                    element.textContent = getStatusName(currentStatus);
+                    showSaveIndicator('⚠️ Ошибка при сохранении', 'error');
+                });
+            };
+
+            select.addEventListener('change', saveStatus);
+            select.addEventListener('blur', () => {
+                if (!select.parentNode) return;
+                element.textContent = getStatusName(currentStatus);
+            });
+        }
+
+        function openAssigneeDropdown(element, taskId, currentAssignee) {
+            if (element.querySelector('input')) return;
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentAssignee || '';
+            input.style.width = '100%';
+            input.style.padding = '0.25rem';
+            input.style.fontSize = '0.9rem';
+            input.style.border = '1px solid var(--primary-color)';
+            input.style.boxSizing = 'border-box';
+
+            element.innerHTML = '';
+            element.appendChild(input);
+            input.focus();
+            input.select();
+
+            const saveAssignee = () => {
+                const newAssignee = input.value.trim();
+                showSaveIndicator('💾 Сохранение...', 'saving');
+                fetch(`/api/projects/${projectId}/tasks/${taskId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                    },
+                    body: JSON.stringify({ assigneeName: newAssignee || null })
+                })
+                .then(r => r.json())
+                .then(updatedTask => {
+                    element.textContent = newAssignee || '-';
+                    element.title = newAssignee || 'Не назначен';
+                    // Обновляем везде
+                    updateTaskAndRefresh(taskId, { assigneeName: newAssignee || null });
+                    showSaveIndicator('✓ Исполнитель обновлён', 'success');
+                })
+                .catch(err => {
+                    console.error('Error updating assignee:', err);
+                    element.textContent = currentAssignee || '-';
+                    element.title = currentAssignee || 'Не назначен';
+                    showSaveIndicator('⚠️ Ошибка при сохранении', 'error');
+                });
+            };
+
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') saveAssignee();
+            });
+
+            input.addEventListener('blur', saveAssignee);
+        }
+
+        function loadNotificationCount() {
+            fetch('/api/notifications/count')
+                .then(r => r.json())
+                .then(data => {
+                    const badge = document.getElementById('notificationCount');
+                    if (badge && data.unread > 0) {
+                        badge.textContent = '(' + data.unread + ')';
+                        badge.style.color = 'var(--danger-color)';
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function loadPlanningIssues() {
+            fetch(`/api/projects/${projectId}/planning-issues`)
+                .then(r => r.json())
+                .then(data => {
+                    const block = document.getElementById('planningIssuesBlock');
+                    const content = document.getElementById('planningIssuesContent');
+
+                    if (data.totalCount === 0) {
+                        block.style.display = 'none';
+                        return;
+                    }
+
+                    block.style.display = 'block';
+                    let html = `<p><strong>Критичных:</strong> ${data.criticalCount} | <strong>Предупреждений:</strong> ${data.warningCount}</p>`;
+                    html += '<div style="max-height: 300px; overflow-y: auto;">';
+                    data.issues.slice(0, 5).forEach(issue => {
+                        const severityColor = issue.severity === 'CRITICAL' ? '#ef4444' :
+                                            issue.severity === 'WARNING' ? '#f59e0b' : '#6b7280';
+                        html += `
+                            <div style="padding: 0.5rem; border-left: 3px solid ${severityColor}; margin-bottom: 0.5rem;">
+                                <strong style="color: ${severityColor};">${issue.severityDisplay}</strong> - ${issue.typeDisplay}
+                                <br><small style="color: #666;">${issue.taskTitle}</small>
+                            </div>
+                        `;
+                    });
+                    if (data.totalCount > 5) {
+                        html += `<p style="color: #666;"><em>...и еще ${data.totalCount - 5}</em></p>`;
+                    }
+                    html += '</div>';
+                    content.innerHTML = html;
+                })
+                .catch(() => {});
+        }
+
+        function loadCriticalPath() {
+            fetch(`/api/projects/${projectId}/critical-path`)
+                .then(r => r.json())
+                .then(data => {
+                    const block = document.getElementById('criticalPathBlock');
+                    const content = document.getElementById('criticalPathContent');
+
+                    if (data.hasCycle) {
+                        content.innerHTML = '<p style="color: #ef4444;">⚠️ ' + data.message + '</p>';
+                        block.style.display = 'block';
+                        return;
+                    }
+
+                    if (data.taskIds.length === 0) {
+                        block.style.display = 'none';
+                        return;
+                    }
+
+                    block.style.display = 'block';
+                    let html = `<p><strong>Длительность критического пути:</strong> ${data.totalDurationDays} дней</p>`;
+                    html += `<p><strong>Задач в критическом пути:</strong> ${data.taskIds.length}</p>`;
+                    content.innerHTML = html;
+                })
+                .catch(() => {});
+        }
+
+        function loadAssigneeWorkload() {
+            fetch(`/api/projects/${projectId}/assignee-workload`)
+                .then(r => r.json())
+                .then(data => {
+                    const block = document.getElementById('assigneeWorkloadBlock');
+                    const content = document.getElementById('assigneeWorkloadContent');
+
+                    if (data.length === 0) {
+                        block.style.display = 'none';
+                        return;
+                    }
+
+                    block.style.display = 'block';
+                    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">';
+                    data.forEach(assignee => {
+                        const loadPercent = assignee.totalTasks > 0 ?
+                            Math.round((assignee.inProgressTasks / assignee.totalTasks) * 100) : 0;
+                        html += `
+                            <div style="border: 1px solid #e5e7eb; padding: 1rem; border-radius: 4px;">
+                                <strong>${assignee.assigneeName}</strong>
+                                <div style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
+                                    Всего: ${assignee.totalTasks} | В работе: ${assignee.inProgressTasks} | Выполнено: ${assignee.doneTasks}
+                                </div>
+                                <div style="width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; margin-top: 0.5rem; overflow: hidden;">
+                                    <div style="width: ${loadPercent}%; height: 100%; background: #2563eb;"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    content.innerHTML = html;
+                })
+                .catch(() => {});
+        }
+
+        function filterTasks() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('.task-row');
+            rows.forEach(row => {
+                const title = row.querySelector('td').textContent.toLowerCase();
+                row.style.display = title.includes(searchTerm) ? '' : 'none';
+            });
+        }
+
+        function loadAvailableTasks() {
+            if (!currentTaskId) return;
+            fetch(`/api/projects/${projectId}/tasks`)
+                .then(r => r.json())
+                .then(tasks => {
+                    const select = document.getElementById('sidebarDependencySelect');
+                    select.innerHTML = '<option value="">— Выберите предшественника —</option>';
+                    tasks.forEach(task => {
+                        if (task.id !== currentTaskId) {
+                            const option = document.createElement('option');
+                            option.value = task.id;
+                            option.textContent = task.title;
+                            select.appendChild(option);
+                        }
+                    });
+                })
+                .catch(err => console.error('Error:', err));
+        }
+
+        function loadSidebarDependencies() {
+            if (!currentTaskId) return;
+            fetch(`/api/projects/${projectId}/tasks/${currentTaskId}/dependencies`)
+                .then(r => r.json())
+                .then(dependencies => {
+                    const list = document.getElementById('sidebarDependencies');
+                    list.innerHTML = '';
+                    dependencies.forEach(dep => {
+                        const div = document.createElement('div');
+                        div.style.cssText = 'padding: 0.5rem; border: 1px solid #e5e7eb; margin-bottom: 0.5rem; border-radius: 4px;';
+                        div.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>${dep.dependsOnTaskTitle}</span>
+                                <button onclick="removeDependency(${dep.id})" class="icon-btn" style="padding: 0;" title="Удалить">✕</button>
+                            </div>
+                        `;
+                        list.appendChild(div);
+                    });
+                    if (dependencies.length === 0) {
+                        list.innerHTML = '<p style="color: #999; font-size: 0.9rem;">Нет зависимостей</p>';
+                    }
+                })
+                .catch(err => console.error('Error:', err));
+        }
+
+        function addDependency() {
+            if (!currentTaskId) return;
+            const dependsOnTaskId = document.getElementById('sidebarDependencySelect').value;
+            if (!dependsOnTaskId) return;
+
+            const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+            fetch(`/api/projects/${projectId}/tasks/${currentTaskId}/dependencies`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    [header]: token
+                },
+                body: JSON.stringify({ dependsOnTaskId: parseInt(dependsOnTaskId) })
+            }).then(r => {
+                if (r.ok) {
+                    document.getElementById('sidebarDependencySelect').value = '';
+                    loadSidebarDependencies();
+                    loadTasks();
+                }
+            }).catch(err => console.error('Error:', err));
+        }
+
+        function removeDependency(dependencyId) {
+            if (!currentTaskId) return;
+            const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+            fetch(`/api/projects/${projectId}/tasks/${currentTaskId}/dependencies/${dependencyId}`, {
+                method: 'DELETE',
+                headers: {[header]: token}
+            }).then(() => {
+                loadSidebarDependencies();
+                loadTasks();
+            }).catch(err => console.error('Error:', err));
+        }
+    </script>
+</body>
+</html>

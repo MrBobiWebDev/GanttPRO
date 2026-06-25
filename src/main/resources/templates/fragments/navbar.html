@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<nav class="navbar" th:fragment="navbar">
+    <div class="navbar-container">
+        <div class="navbar-logo">
+            <a href="/">📊 GanttPRO</a>
+        </div>
+        <div class="navbar-menu">
+            <a href="/notifications" class="nav-link" id="notificationsLink">
+                Уведомления <span class="notification-badge" id="notificationCount"></span>
+            </a>
+            <div class="nav-user">
+                <span class="username" th:text="${#authentication.name}"></span>
+                <form action="/logout" method="post" style="display: inline;">
+                    <button type="submit" class="nav-logout">Выход</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</nav>
+</body>
+</html>
