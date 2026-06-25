@@ -723,9 +723,14 @@
                     [header]: token
                 },
                 body: JSON.stringify(formData)
-            }).then(() => {
-                // Обновляем задачу в памяти и перерисовываем везде
-                updateTaskAndRefresh(currentTaskId, formData);
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error('Server error: ' + response.status);
+                }
+                return response.json();
+            }).then(updatedTask => {
+                // Перезагружаем все задачи с сервера для синхронизации везде
+                loadTasks();
                 showSaveIndicator('✓ Данные сохранены', 'success');
             }).catch(err => {
                 console.error('Error:', err);
