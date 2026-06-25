@@ -1641,7 +1641,7 @@
                 const newStatus = select.value;
                 showSaveIndicator('💾 Сохранение...', 'saving');
                 fetch(`/api/projects/${projectId}/tasks/${taskId}`, {
-                    method: 'PATCH',
+                    method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
