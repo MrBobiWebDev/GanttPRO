@@ -19,7 +19,7 @@ public class GanttproApplication {
     }
 
     @Bean
-    @Profile("!railway")
+    @Profile("default")
     public CommandLineRunner loadDemoData(UserRepository userRepository,
                                          ProjectRepository projectRepository,
                                          TaskRepository taskRepository,
