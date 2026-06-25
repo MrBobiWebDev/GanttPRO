@@ -12,4 +12,4 @@ WORKDIR /app
 RUN mkdir -p data
 COPY --from=builder /workspace/target/ganttpro-app-*.jar app.jar
 EXPOSE 8080
-CMD ["java", "-Xmx512m", "-Xms256m", "-jar", "app.jar"]
+CMD ["java", "-Xmx512m", "-Xms256m", "-jar", "/app/app.jar"]
